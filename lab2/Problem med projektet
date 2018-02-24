@@ -1,0 +1,44 @@
+--- Det finns en problematik i när man skickar in samma data i signin 
+	Skickade in två passwords och fick ändå sucess
+--- Borde token finnas med i datan som går till användare eller är det något som vi ska behålla i database_helper
+--- Borde vi ha logik i check_input_data(data, keys): 
+--- Har skrivit en ny funktion för delete token men som inte fungerar än har markerat den som 2# för att kunna kolla om den fungerar. 
+Har kollat kod från postinternetsyndrome på Github
+--- Har inlett ett till försök med hjälp av metod från Schlyterr på github lägger in den som # för att se om denna metod lämpar sig bättre för att använda 
+--- Funderar på om vi måste göra om vår funtion för att Kolla token i database_helper för att se till så att vi inte får flera tokens på samma användare i vår databas 
+
+
+
+
+
+
+
+Ta bort token för en email och sedan lägg till nya(?):
+---- Vad händer med när vi genererar ny token och tar bort den gamla egentligen? Kan vi göra så eller kommer inloggen fuckas för den som redan är inloggad? 
+
+---- Vill vi ha token generator i servern eller i helpern? 
+
+
+
+
+
+
+
+
+då får vi i server.py:
+database_helper.add_token_user(email)     
+
+och i helpern:
+
+def add_token_user(email):
+    query_db("delete from users_loggedin where email=?", [email])     
+    
+    token = token_generator()
+
+    query_db("insert into users_loggedin values(?, ?)", [token, email])
+
+
+
+
+
+
