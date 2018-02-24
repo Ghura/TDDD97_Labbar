@@ -129,24 +129,18 @@ signupValidation = function () {
         "country": document.forms["signupform"]["country"].value
     };
 
-    var xhttp = new XMLHttpRequest();
-
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            added = JSON.parse(xhttp.responseText);
-
-            if (added.success) {
-                loginValidation(document.forms["signupform"]["email"].value, document.forms["signupform"]["password"].value);
+    PostFunctionAJAX("/signin", localStorage.getItem("token"), "Content-Type", "application/json", loginData, function() {
+            if (this.success) {
+                localStorage.token = this.data;
+                localStorage.email = loginData.email;
+                displayView();
                 return true;
             } else {
-                mess.innerHTML = added.message;
+                document.getElementById("mess2").innerHTML = this.message;
                 return false;
             }
-        }
-    };
-    xhttp.open("POST",'/signup', true);
-    xhttp.setRequestHeader("Content-Type","application/json");
-    xhttp.send(JSON.stringify(regData));
+        });
+
 };
 
 // Logga in. Visar felmeddelande om användare/lösenord är fel, annars får man en token tilldelad, kör en dispview => profileview
@@ -164,29 +158,20 @@ loginValidation = function (email, password) {
         };
     }
 
-    var xhttp = new XMLHttpRequest();
-
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            result = JSON.parse(xhttp.responseText);
-
-            if (result.success) {
-                localStorage.token = result.data;
+    PostFunctionAJAX("/signin", localStorage.getItem("token"), "Content-Type", "application/json", loginData, function() {
+            if (this.success) {
+                localStorage.token = this.data;
+                localStorage.email = loginData.email;
                 displayView();
                 return true;
             } else {
-                document.getElementById("mess2").innerHTML = result.message;
+                document.getElementById("mess2").innerHTML = this.message;
                 return false;
             }
-        }
-    };
-    xhttp.open("POST",'/signin', true);
-    xhttp.setRequestHeader("Content-Type","application/json");
-    xhttp.send(JSON.stringify(loginData));
+    });
 };
 
 
-// Logga ut från profileview                DO YOU NEED XMLHttpRequest FOR THIS????? Ja, måste ju ta bort token från table
 signOut = function () {
     token = localStorage.getItem("token");
     // localStorage.removeItem("token");
@@ -196,7 +181,7 @@ signOut = function () {
         if (this.readyState == 4 && this.status == 200) {
             result = JSON.parse(xhttp.responseText);
             if (result.success) {
-                localStorage.removeItem("token");
+                localStorage.clear();
                 displayView();
                 return true;
             } else {
@@ -239,177 +224,140 @@ function openTab(evt, tabName) {                        // evt = eventet, som ä
     }
 }
 
-var getEmailByToken = function(token, callback) {
-     var xhttp = new XMLHttpRequest();
-        xhttp.onreadystatechange = function() {
-            if (xhttp.readyState == 4 && xhttp.status == 200) {
-                callback.call(JSON.parse(xhttp.responseText));
+var GetFunctionAJAX = function(url, token, callback) {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+        if (xhttp.readyState == 4 && xhttp.status == 200) {
+            callback.call(JSON.parse(xhttp.responseText));
         }
     };
-        xhttp.open("GET",'/get-user-data-by-token/', true);
+    xhttp.open("GET", url, true);
+    if (token) {
         xhttp.setRequestHeader("Authorization", token);
-        xhttp.send();
+    }
+    xhttp.send();
 };
 
+var PostFunctionAJAX = function(url, token, Header, HeaderValue, parameters, callback) {
+    var xhttp = new XMLHttpRequest();
+
+    xhttp.onreadystatechange = function() {
+        if (xhttp.readyState == 4 && xhttp.status == 200) {
+            callback.call(JSON.parse(xhttp.responseText));
+        }
+    };
+    xhttp.open("POST", url, true);
+    xhttp.setRequestHeader("Authorization", token);
+    xhttp.setRequestHeader(Header, HeaderValue);
+    xhttp.send(JSON.stringify(parameters));
+};
 
 
 // Home-tab
 // Visa userinfo
 userInfo = function(email) {    // Om vi gör userInfo() så tilldelar vi email till vår lokala/inloggade mail, så att funktionen kan användas både till att visa info om sig själv och om andra
-    var token = localStorage.getItem("token");
-
     if (email == null) {
-        email = getEmailByToken(token, function() {
-            if (this.success) {
-                alert(this.message);
-                return "linus@tjena.se";
-            } else {
-                console.log(this.message)
-            }
-        });
+        email = localStorage.getItem("email");
     }
 
-    var xhttp = new XMLHttpRequest();
-
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            user = JSON.parse(xhttp.responseText);
-
-            if (user.success) {
-                document.getElementById("loggedinname").innerHTML = user.data[0].firstname;
-                document.getElementById("loggedinfamilyname").innerHTML = user.data[0].familyname;
-                document.getElementById("loggedinemail").innerHTML = user.data[0].email;
-                document.getElementById("loggedingender").innerHTML = user.data[0].gender;
-                document.getElementById("loggedincity").innerHTML = user.data[0].city;
-                document.getElementById("loggedincountry").innerHTML = user.data[0].country;
-                return true;
-            } else {
-                alert(user.message);
-                return false;
-            }
+    GetFunctionAJAX('get-user-data-by-email/' + email, localStorage.getItem("token"), function() {
+        if (this.success) {
+            document.getElementById("loggedinname").innerHTML = this.data[0].firstname;
+            document.getElementById("loggedinfamilyname").innerHTML = this.data[0].familyname;
+            document.getElementById("loggedinemail").innerHTML = this.data[0].email;
+            document.getElementById("loggedingender").innerHTML = this.data[0].gender;
+            document.getElementById("loggedincity").innerHTML = this.data[0].city;
+            document.getElementById("loggedincountry").innerHTML = this.data[0].country;
+        } else {
+            console.log(this.message);
         }
-    };
-    xhttp.open("GET",'/get-user-data-by-email/' + email, true);
-    xhttp.setRequestHeader("Authorization", token);
-    xhttp.send();
+    });
 };
 
 postToWall = function() {
     var text = document.getElementsByName("posttextarea");
-    var result;
+    token = localStorage.getItem("token");
 
-    // The getElementsByName() method returns a collection of all elements in the document with the specified name (the value of the name attribute), as a NodeList object.
-    // The NodeList object represents a collection of nodes. The nodes can be accessed by index numbers. The index starts at 0.
+    // Om vi är inne på Browsetaben så vill vi använda "den andra varianten/innehållet" i "posttextarea" = 1
+    if (tabbis === "Browse") {
+        var postMessage = {
+            "message" : text[1].value,
+            "recipient" : document.getElementById("searchemail").value
+        };
 
-   if (tabbis === "Browse") {       // Om vi är inne på Browsetaben så vill vi använda "den andra varianten/innehållet" i "posttextarea" = 1
-       var postMessage = {
-           "message" : text[1].value,
-           "recipient" : document.getElementById("searchemail").value
-       };
-
-       var xhttp = new XMLHttpRequest();
-       xhttp.onreadystatechange = function() {
-           if (this.readyState == 4 && this.status == 200) {
-               result = JSON.parse(xhttp.responseText);
-
-               if (result.success) {
-                   document.getElementsByName("posttextarea")[1].value = "";
-                   searchForUser();
-                   return true;
-               } else {
-                   alert(result.message);
-                   return false;
+        PostFunctionAJAX("/post-message", token, "Content-Type", "application/json", postMessage, function() {
+            if (this.success) {
+                document.getElementsByName("posttextarea")[0].value = "";
+                searchForUser();
+                console.log("postade på någons vägg");
+            } else {
+                console.log(this.message);
             }
-        }
-    };
-    xhttp.open("POST",'/post-message', true);
-    xhttp.setRequestHeader("Content-Type","application/json");
-    xhttp.setRequestHeader("Authorization", localStorage.getItem("token"));
-    xhttp.send(JSON.stringify(postMessage));
+        });
 
     } else {
        var postMessage = {
            "message" : text[0].value,
-           "recipient" : "linus@tjena.se"
+           "recipient" : localStorage.getItem("email")
        };
 
-       var xhttp = new XMLHttpRequest();
-       xhttp.onreadystatechange = function() {
-           if (this.readyState == 4 && this.status == 200) {
-               result = JSON.parse(xhttp.responseText);
-
-               if (result.success) {
-                   document.getElementsByName("posttextarea")[0].value = "";
-                   updateWall();
-                   return true;
-               } else {
-                   alert(result.message);
-                   return false;
+        PostFunctionAJAX("/post-message", token, "Content-Type", "application/json", postMessage, function() {
+            if (this.success) {
+                document.getElementsByName("posttextarea")[0].value = "";
+                updateWall();
+                console.log(this.message);
+            } else {
+                console.log(this.message);
             }
-        }
-    };
-    xhttp.open("POST",'/post-message', true);
-    xhttp.setRequestHeader("Content-Type","application/json");
-    xhttp.setRequestHeader("Authorization", localStorage.getItem("token"));
-    xhttp.send(JSON.stringify(postMessage));
-    }
+        });
+   }
 };
 
 
 updateWall = function(email) {
-
-    email = "linus@tjena.se";
-
     if (email == null) {
-        email = serverstub.getUserDataByToken(localStorage.getItem("token")).data.email;
+        email = localStorage.getItem("email");
     }
 
-    var xhttp = new XMLHttpRequest();
-
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            result = JSON.parse(xhttp.responseText);
-
-            if (result.success) {
-                for (var i = 0; i<result.data.length; ++i) {
-                    if (i === 0)
-                        document.getElementById("messages").innerHTML = "<div>From: " + result.data[i].sender + " Message: " + result.data[i].message + "</div>";
-                    else
-                        document.getElementById("messages").innerHTML += "<div>From: "+ result.data[i].sender + " Message: " + result.data[i].message + "</div>";
-                }
-                return true;
-            } else {
-                document.getElementById("messages").innerHTML = result.message;
-                return false;
+    GetFunctionAJAX("/get-user-messages-by-email/" + email, localStorage.getItem("token"), function() {
+        if (this.success) {
+            for (var i = 0; i<this.data.length; ++i) {
+                if (i === 0)
+                    document.getElementById("messages").innerHTML = "<div>From: " + this.data[i].sender + " Message: " + this.data[i].message + "</div>";
+                else
+                    document.getElementById("messages").innerHTML += "<div>From: "+ this.data[i].sender + " Message: " + this.data[i].message + "</div>";
             }
-        }
-    };
-    xhttp.open("GET",'/get-user-messages-by-email/' + email, true);
-    xhttp.setRequestHeader("Authorization", localStorage.getItem("token"));
-    xhttp.send();
+            } else {
+                document.getElementById("messages").innerHTML = this.message;
+            }
+    });
 };
 
 
 searchForUser = function() {
     var email = document.getElementById("searchemail").value;
-    var result = serverstub.getUserDataByEmail(localStorage.getItem("token"), email);
 
-    if (email == serverstub.getUserDataByToken(localStorage.getItem("token")).data.email) {        // "guard block"
+    if (email == localStorage.getItem("email")) {        // "guard block"
          document.getElementById("searchusermess").innerHTML = "You can't search for yourself, go to your Homeview instead!";
          document.getElementById("searcheduserpage").innerHTML = "";
          return false;
     }
 
-    if (result.success) {
-        userInfo(email);
-        updateWall(email);
-        document.getElementById("searchusermess").innerHTML = "";
-        document.getElementById("searcheduserpage").innerHTML = document.getElementById("Home").innerHTML;
+    userInfo(email);
+    updateWall(email);
 
-    }  else {
-        document.getElementById("searchusermess").innerHTML = result.message;
-        document.getElementById("searcheduserpage").innerHTML = "";
-    }
+    GetFunctionAJAX('get-user-data-by-email/' + email, localStorage.getItem("token"), function() {
+        if (this.success) {
+            document.getElementById("searchusermess").innerHTML = "";
+            document.getElementById("searcheduserpage").innerHTML = document.getElementById("Home").innerHTML;
+        } else {
+            document.getElementById("searchusermess").innerHTML = this.message;
+            document.getElementById("searcheduserpage").innerHTML = "";
+        }
+    });
+
+
+
 };
 
 

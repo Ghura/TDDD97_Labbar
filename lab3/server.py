@@ -115,7 +115,7 @@ def get_user_data_by_email(email):
         data = database_helper.get_user_data(email)
         return jsonify(success="True", message="User data sent.", data=data)
     else:
-        return jsonify(success=False, message="Email does not exist")
+        return jsonify(success=False, message="User does not exist.")
 
 
 @app.route('/post-message', methods=['POST'])
@@ -170,7 +170,7 @@ def get_user_messages_by_email(email):
         else:
             return jsonify(success=False, message="User has no messages yet.")
     else:
-            return jsonify(success=False, message="User does not exist")
+            return jsonify(success=False, message="User does not exist.")
 
 
 
