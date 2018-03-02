@@ -1,11 +1,17 @@
 from flask import Flask, jsonify
 from flask import app, request, json, g
+from gevent.wsgi import WSGIServer
+from geventwebsocket.handler import WebSocketHandler
+from gevent.pywsgi import WSGIServer
 import database_helper
 import string
 import random
 
+
+webSockets = {}
+
 app = Flask(__name__)
-app.debug = True
+#app.debug = True flyttad langst ner
 
 
 def token_generator(size=20, chars=string.ascii_uppercase + string.ascii_lowercase + string.digits):
@@ -40,6 +46,10 @@ def sign_in():
     if database_helper.check_valid_user(data['email'], data['password']):
         token = token_generator()
         database_helper.add_token_user(data['email'], token)
+
+        if data['email'] in webSockets:
+            webSockets[data['email']].send(json.dumps("signOutNow"))
+            del webSockets[data['email']]
         return jsonify(success=True, message="Logged in.", data=token)
     else:
         return jsonify(success=False, message="Wrong username or password!")
@@ -67,7 +77,12 @@ def sign_up():
 def sign_out():
     token = request.headers.get("Authorization")
 
-    if database_helper.remove_token_user(token):
+    email = database_helper.get_email_by_token(token)
+
+    if email in webSockets:
+        del webSockets[email]
+
+    if email and database_helper.remove_token_user(token):
         return jsonify(success=True, message="Logged out!")
     else:
         return jsonify(success=False, message="Token does not exist/Already signed out?")
@@ -139,7 +154,7 @@ def post_message():
         database_helper.add_message(sender, data['message'], data['recipient'])
         return jsonify(success=True, message="Message posted!")
     except:
-         return jsonify(success=False, message="Could not send message!")
+        return jsonify(success=False, message="Could not send message!")
 
 
 
@@ -173,7 +188,6 @@ def get_user_messages_by_email(email):
             return jsonify(success=False, message="User does not exist.")
 
 
-
 def check_input_data(data, keys):
     missing = 0
     for i in keys:
@@ -191,5 +205,27 @@ def check_input_data(data, keys):
     else:
             return True
 
+
+#socket.route
+
+@app.route('/api')
+def api():
+    if request.environ.get('wsgi.websocket'):
+        ws = request.environ['wsgi.websocket']
+        while True:
+            msg = ws.receive()
+
+            if database_helper.check_token(msg):
+                email = database_helper.get_email_by_token(msg)
+                webSockets[email] = ws
+            else:
+                ws.close()
+    return "OK"
+
+
+
 if __name__ == '__main__':
-    app.run()
+    app.debug = True
+    http_server = WSGIServer(('', 5169), app, handler_class=WebSocketHandler)
+    http_server.serve_forever()
+
